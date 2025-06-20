@@ -174,3 +174,71 @@ kubectl logs <nama-pod>
 
 Selamat mencoba! 🚀  
 Jika kamu mengalami kendala, gunakan `kubectl describe` atau `kubectl logs` untuk investigasi.
+
+## 🚀 Demo 3: Deploy ke Amazon EKS dengan Spot Instances
+### IAM Role
+- IAM User dengan akses: eks:*, ec2:*, iam:*
+- VPC yang bisa dibuat otomatis oleh eksctl, atau sudah ada sebelumnya.
+
+### 🧰 Instalasi CLI (opsional jika belum)
+#AWS CLI
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+apt install unzip -y
+unzip awscliv2.zip
+sudo ./aws/install
+aws --version
+
+#EKSCTL
+# for ARM systems, set ARCH to: `arm64`, `armv6` or `armv7`
+ARCH=amd64
+PLATFORM=$(uname -s)_$ARCH
+
+curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$PLATFORM.tar.gz"
+
+# (Optional) Verify checksum
+curl -sL "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_checksums.txt" | grep $PLATFORM | sha256sum --check
+
+tar -xzf eksctl_$PLATFORM.tar.gz -C /tmp && rm eksctl_$PLATFORM.tar.gz
+
+sudo mv /tmp/eksctl /usr/local/bin
+eksctl version
+
+#KUBECTL
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl.sha256"
+echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+kubectl version --client
+### 🗂️ Buat Cluster
+
+eksctl create cluster -f cluster.yaml
+Butuh ~15–20 menit. Cluster akan menggunakan EC2 Spot Instances untuk efisiensi biaya.
+
+### 🔗 Konfigurasi kubectl ke cluster
+
+aws eks --region ap-south-1 update-kubeconfig --name nginx-cluster
+### 🚀 Deploy Aplikasi
+
+kubectl apply -f deployment.yaml
+kubectl apply -f service.yaml
+### 🌐 Akses Aplikasi
+
+kubectl describe service nginx-service
+Cari bagian:
+
+LoadBalancer Ingress: <dns-name>
+Lalu akses di browser:
+
+http://<dns-name>
+
+### Delete Resource After Workshop
+# Hapus deployment dan service
+kubectl delete -f deployment.yaml
+kubectl delete -f service.yaml
+
+# Hapus cluster EKS sepenuhnya
+eksctl delete cluster --name nginx-cluster --region ap-south-1
+
+Pastikan tidak ada resource kubectl get all yang tertinggal setelah delete.
+
+Gunakan kubectl config get-contexts untuk memastikan kamu berada di context yang tepat saat menjalankan perintah delete.
